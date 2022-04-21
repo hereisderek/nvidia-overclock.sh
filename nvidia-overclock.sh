@@ -44,13 +44,24 @@ overclock () {
   # Note: The lines below were used to configure a system with 6 graphics cards.
   # You will neeed to add/remove lines based on the number of graphics cards in 
   # your particular system.
-  log "Calling nvidia-settings to overclock GPU(s).."
-  log "$(nvidia-settings -c :0 -a '[gpu:0]/GPUGraphicsClockOffset[3]=100' -a '[gpu:0]/GPUMemoryTransferRateOffset[3]=1300')"
-  log "$(nvidia-settings -c :0 -a '[gpu:1]/GPUGraphicsClockOffset[3]=100' -a '[gpu:1]/GPUMemoryTransferRateOffset[3]=1300')"
-  log "$(nvidia-settings -c :0 -a '[gpu:2]/GPUGraphicsClockOffset[3]=100' -a '[gpu:2]/GPUMemoryTransferRateOffset[3]=1300')"
-  log "$(nvidia-settings -c :0 -a '[gpu:3]/GPUGraphicsClockOffset[3]=100' -a '[gpu:3]/GPUMemoryTransferRateOffset[3]=1300')"
-  log "$(nvidia-settings -c :0 -a '[gpu:4]/GPUGraphicsClockOffset[3]=100' -a '[gpu:4]/GPUMemoryTransferRateOffset[3]=1300')"
-  log "$(nvidia-settings -c :0 -a '[gpu:5]/GPUGraphicsClockOffset[3]=100' -a '[gpu:5]/GPUMemoryTransferRateOffset[3]=1300')"
+  #log "Calling nvidia-settings to overclock GPU(s).."
+  #log "$(nvidia-settings -c :0 -a '[gpu:0]/GPUGraphicsClockOffset[3]=100' -a '[gpu:0]/GPUMemoryTransferRateOffset[3]=1300')"
+  #log "$(nvidia-settings -c :0 -a '[gpu:1]/GPUGraphicsClockOffset[3]=100' -a '[gpu:1]/GPUMemoryTransferRateOffset[3]=1300')"
+  #log "$(nvidia-settings -c :0 -a '[gpu:2]/GPUGraphicsClockOffset[3]=100' -a '[gpu:2]/GPUMemoryTransferRateOffset[3]=1300')"
+  #log "$(nvidia-settings -c :0 -a '[gpu:3]/GPUGraphicsClockOffset[3]=100' -a '[gpu:3]/GPUMemoryTransferRateOffset[3]=1300')"
+  #log "$(nvidia-settings -c :0 -a '[gpu:4]/GPUGraphicsClockOffset[3]=100' -a '[gpu:4]/GPUMemoryTransferRateOffset[3]=1300')"
+  #log "$(nvidia-settings -c :0 -a '[gpu:5]/GPUGraphicsClockOffset[3]=100' -a '[gpu:5]/GPUMemoryTransferRateOffset[3]=1300')"
+  
+  # or do in batch
+  local NUM_GPU=$(nvidia-smi -L | wc -l)
+  local default_gpu_offset=200 default_memory_offset=1300 default_fan_speed=65
+  log "Calling nvidia-settings to overclock ${NUM_GPU} GPU(s).."
+
+  for (( i=$(($NUM_GPU-1)); i>=0; i-- )); do
+    log "overclocking on gpu:${i}.."
+    log "$(nvidia-settings -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${default_gpu_offset} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${default_memory_offset})"
+    log "$(nvidia-settings -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${default_gpu_offset} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${default_memory_offset})"
+  done
 }
 
 abs_filename() {
@@ -70,9 +81,8 @@ SCRIPT="$(abs_filename "$0")"
 log() {
   if [ "$LOG" -eq 1 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S - ')$1" >> $LOG_FILE
-  else
-    echo "$1"
   fi
+  echo "$1"
 }
 
 xserver_up() {
