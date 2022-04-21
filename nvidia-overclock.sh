@@ -59,7 +59,7 @@ overclock () {
 
   for (( i=$(($NUM_GPU-1)); i>=0; i-- )); do
     log "overclocking on gpu:${i}.."
-    log "$(nvidia-settings -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${default_gpu_offset} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${default_memory_offset})"
+    log "$(nvidia-settings -c :0 -a [gpu:${i}]/GPUPowerMizerMode=1 -a [gpu:${i}]/GPUFanControlState=1 -a [gpu:${i}]/GPUTargetFanSpeed=${default_fan_speed})"
     log "$(nvidia-settings -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${default_gpu_offset} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${default_memory_offset})"
   done
 }
