@@ -29,6 +29,9 @@
 LOG_FILE="/var/log/nvidia-overclock.log"
 LOG=0
 
+DISPLAY=:0
+export DISPLAY
+
 SMI='/usr/bin/nvidia-smi'
 SET='/usr/bin/nvidia-settings'
 VER=$(awk '/NVIDIA/ {print $8}' /proc/driver/nvidia/version | cut -d . -f 1)
@@ -42,12 +45,13 @@ if [ ${VER} -lt 285 ]; then
   exit 1
 fi
 
+nvidia-xconfig --preserve-busid --preserve-driver-name 
+nvidia-xconfig -a --cool-bits=31 --allow-empty-initial-configuration
 
 echo "NUM_GPU:$NUM_GPU NUM_FAN:$NUM_FAN VER:$VER"
 
 # power limit
 set_gpu_pl() {
-  echo "set_gpu_pl $@ .."
   if [ "$1" = "stop" ]; then 
     # reset power limit to default
     for ((i = 0 ; i < $NUM_GPU; i++)); do
@@ -138,35 +142,76 @@ set_fan_speed() {
   fi
 }
 
-overclock_cclock_mem() {
+overclock_cclock_mem_offset() {
   if [ "$1" = "stop" ]; then 
     local clock=0
     local mem=0
   else 
+    # if it's not a number (e.g. skip), operation will be skipped
     local clock=$1 #GPUGraphicsClockOffset
     local mem=$2 #GPUMemoryTransferRateOffset 
   fi
 
 
   [ ${clock} -ne ${clock} ] || [ ${mem} -ne ${mem} ] && {
-    echo "invalid input for overclock_cclock_mem clock:$clock mem:$mem"
+    echo "invalid input for overclock_cclock_mem_offset clock:$clock mem:$mem"
     exit 1
   }
 
   echo "updating overclock GPUGraphicsClockOffset:$clock GPUMemoryTransferRateOffset:$mem..."
   for ((i = 0; i < $NUM_GPU; i++)); do
-    # DISPLAY=:0 ${SET} -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${clock} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${mem}  -- :0 -once
-    DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${clock} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${mem} -a [gpu:${i}]/GPUPowerMizerMode=1
+
+    [ "$clock" -eq "$clock" ] 2>/dev/null&&{
+      # DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${clock}
+      DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[4]=${clock}
+    }
+
+    [ "$mem" -eq "$mem" ] 2>/dev/null&&{
+      # DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${mem}
+      DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUMemoryTransferRateOffset[4]=${mem}
+    }
+
+    DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUPowerMizerMode=1
+    
+    # DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[3]=${clock} -a [gpu:${i}]/GPUMemoryTransferRateOffset[3]=${mem} -a [gpu:${i}]/GPUPowerMizerMode=1
+    # DISPLAY=:0 ${SET} -c :0 -a [gpu:${i}]/GPUGraphicsClockOffset[4]=${clock} -a [gpu:${i}]/GPUMemoryTransferRateOffset[4]=${mem} -a [gpu:${i}]/GPUPowerMizerMode=1
     local set_clock=`DISPLAY=:0 ${SET} -q [gpu:${i}]/GPUGraphicsClockOffset[3] -t`
     local set_mem=`DISPLAY=:0 ${SET} -q [gpu:${i}]/GPUMemoryTransferRateOffset[3] -t`
     echo "GPU:$i overclock settings updated, GPUGraphicsClockOffset:$set_clock GPUMemoryTransferRateOffset:$set_mem"
   done
+
+  if [ "$1" = "stop" ]; then 
+    overclock_lock_gpu_clock "stop"
+    overclock_lock_mem_clock "stop"
+  fi
+}
+
+overclock_lock_gpu_clock() {
+  echo "overclock_lock_gpu_clock: $@..."
+  if [ "$1" = "stop" ]; then 
+    ${SMI} -rgc
+  else 
+    ${SMI} -lgc $@
+  fi
+}
+
+overclock_lock_mem_clock() {
+  echo "overclock_lock_mem_clock: $@..."
+  if [ "$1" = "stop" ]; then 
+    ${SMI} -rmc
+  else 
+    ${SMI} -lmc $@
+  fi
 }
 
 stop_oc() {
   set_gpu_pl "stop"
-  set_fan_speed "stop"
-  overclock_cclock_mem "stop"
+  # automatic fan control sometimes just stops the fan even if it's over heating, I'd rather have it running at 50% just to be safe
+  # set_fan_speed "stop" 
+  set_fan_speed 60
+  # overclock_cclock_mem_offset "stop"
+  overclock_lock_gpu_clock "stop"
+  overclock_lock_mem_clock "stop"
 }
 
 overclock() {
@@ -192,9 +237,13 @@ overclock() {
   #log "$(nvidia-settings -c :0 -a '[gpu:4]/GPUGraphicsClockOffset[3]=100' -a '[gpu:4]/GPUMemoryTransferRateOffset[3]=1300')"
   #log "$(nvidia-settings -c :0 -a '[gpu:5]/GPUGraphicsClockOffset[3]=100' -a '[gpu:5]/GPUMemoryTransferRateOffset[3]=1300')"
 
-  set_gpu_pl 130
-  set_fan_speed 90
-  overclock_cclock_mem -200 1300
+  # set_gpu_pl 130                  # W, power limit
+  # set_fan_speed 75                # %, fan speed
+  # overclock_cclock_mem_offset -800 1300  # GPUGraphicsClockOffset and GPUMemoryTransferRateOffset
+  overclock_lock_gpu_clock 1005
+  overclock_cclock_mem_offset skip 1300
+  # overclock_lock_gpu_clock 1005
+  # overclock_lock_mem_clock 7950
 }
 
 abs_filename() {

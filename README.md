@@ -56,6 +56,21 @@ overclock () {
 }
 ```
 
+Or you can also do this, which will be applied to all the graphic cards
+
+```
+overclock() {
+  # The following default overclock values for the NVIDIA GTX 1070
+  # were found on average to be stable:
+  # - Graphics Clock       = 100
+  # - Memory Transfer Rate = 1300
+  set_gpu_pl 130                  # W, power limit
+  set_fan_speed 90                # %, fan speed
+  overclock_cclock_mem -200 1300  # GPUGraphicsClockOffset and GPUMemoryTransferRateOffset
+}
+```
+
+
 4. Install the systemd services to run at startup (Optional)
 
 Use the following command to install the systemd services that will start the X server using the *startx* command and then run the *nvidia-overclock.sh* script.
@@ -104,6 +119,17 @@ rm -f /usr/local/bin/nvidia-overclock.sh
 ```
 
 ## Troubleshooting
+
+## What changed?
+Compared to the version from the auther [plyint/nvidia-overclock.sh](https://github.com/plyint/nvidia-overclock.sh)
+[My modified version](https://github.com/hereisderek/nvidia-overclock.sh) added some convinence methods for easy over-clocking (and reverting to default)
+
+* set_gpu_pl: set gpu power limit
+* set_fan_speed: set target fan speed
+* overclock_cclock_mem: set gpu clock offset and memory offset
+* launch option `stop` to revert overclock back to default.
+
+Note: all above apply to all the graphic cards, unless you make modification. If you do require the control on individual cards you're are better off writing your own. My code can still be used for reference
 
 ### Systemd
 The installed systemd services are designed to run after runlevel4 in the hopes that most other scripts that might load kernel modules have already run.  You may need to adjust the "After" dependency listed under the Unit section if you observe the service running earlier than expected.
